@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('出错了')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="card narrow">
+        <h1>出错了</h1>
+        <p class="error" th:text="${status} ? ${status} + ' ' + ${error} : '页面加载失败'"></p>
+        <p th:text="${message} ?: '请返回重试。'"></p>
+        <a class="btn" th:href="@{/}">返回首页</a>
+    </div>
+</main>
+</body>
+</html>

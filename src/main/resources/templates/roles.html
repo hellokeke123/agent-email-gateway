@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('角色管理')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="page-head">
+        <h1>角色管理</h1>
+        <a class="btn primary" th:href="@{/roles/add}">+ 添加角色</a>
+    </div>
+
+    <div th:if="${#lists.isEmpty(roles)}" class="warn">
+        还没有角色。请添加角色（如"角色A"、"角色B"），Agent 才能通过授权码在这些角色间收发消息。
+    </div>
+
+    <table th:unless="${#lists.isEmpty(roles)}" class="table">
+        <thead>
+        <tr>
+            <th>ID</th>
+            <th>角色名</th>
+            <th>描述</th>
+            <th>状态</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="r : ${roles}">
+            <td th:text="${r.id}"></td>
+            <td th:text="${r.name}"></td>
+            <td th:text="${r.description} ?: ''"></td>
+            <td>
+                <span class="badge" th:classappend="${r.enabled} ? 'ok' : 'off'"
+                      th:text="${r.enabled} ? '启用' : '停用'"></span>
+            </td>
+            <td class="actions">
+                <a class="btn small" th:href="@{/roles/{id}/edit(id=${r.id})}">编辑</a>
+                <form method="post" th:action="@{/roles/{id}/delete(id=${r.id})}"
+                      onsubmit="return confirm('确认删除角色「' + '${r.name}' + '」？相关消息会保留。')">
+                    <button type="submit" class="btn small danger">删除</button>
+                </form>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</main>
+</body>
+</html>

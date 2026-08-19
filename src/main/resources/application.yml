@@ -1,0 +1,42 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: agent-gateway
+  datasource:
+    url: jdbc:mysql://localhost:3306/agent_gateway?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
+    username: root
+    password: root
+  sql:
+    init:
+      # MyBatis-Plus 不自动建表，启动时执行幂等 DDL
+      mode: always
+      schema-locations: classpath:schema.sql
+      continue-on-error: false
+  thymeleaf:
+    cache: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+app:
+  # 授权码有效期（分钟）
+  auth-code-ttl-minutes: 60
+  # Agent 授权会话有效期（分钟）
+  session-ttl-minutes: 15
+  # Web 管理页 TOTP 验证后 session 保持时长（分钟）
+  web-session-ttl-minutes: 30
+  # TOTP 校验窗口（±步数，容忍时钟漂移）
+  totp-window: 1
+  # 失败锁定阈值（连续失败 N 次后锁定）
+  totp-lock-threshold: 5
+  # 锁定分钟数
+  totp-lock-minutes: 1
+  # 对外公开地址（用于 skill 下载链接；留空则按请求自动推导）
+  base-url: ""

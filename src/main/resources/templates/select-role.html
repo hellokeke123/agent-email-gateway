@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('选择角色')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="card narrow">
+        <h1>为 Agent 授权一个角色</h1>
+        <p class="muted">选择后将为该角色签发一个授权码，Agent 将获得操作该角色的权限。</p>
+        <p th:if="${error}" class="error" th:text="${error}"></p>
+
+        <div th:if="${#lists.isEmpty(roles)}" class="warn">
+            还没有可用角色，请先到 <a th:href="@{/roles}">角色管理</a> 创建。
+        </div>
+
+        <form th:unless="${#lists.isEmpty(roles)}" method="post" th:action="@{/select}">
+            <input type="hidden" name="sessionId" th:value="${sessionId}">
+            <div class="radio-list">
+                <label class="radio-item" th:each="r : ${roles}">
+                    <input type="radio" name="roleId" th:value="${r.id}" required>
+                    <span>
+                        <strong th:text="${r.name}">角色</strong>
+                        <span class="muted" th:if="${r.description}" th:text="' — ' + ${r.description}"></span>
+                    </span>
+                </label>
+            </div>
+            <button type="submit" class="btn primary">签发授权码</button>
+        </form>
+    </div>
+</main>
+</body>
+</html>

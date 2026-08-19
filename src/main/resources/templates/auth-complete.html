@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('授权完成')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="card narrow" th:if="${code}">
+        <h1>授权完成</h1>
+        <p>已为角色 <strong th:text="${roleName}"></strong> 签发授权码：</p>
+        <pre class="code-box" th:text="${code}"></pre>
+        <p class="muted">有效期至 <span th:text="${expiresAt}"></span>（约 60 分钟），过期后 Agent 可用旧码刷新。</p>
+        <p class="warn">⚠️ 若对该角色再次发起授权，此授权码将立即失效。</p>
+        <p>将此授权码交给 Agent（Agent 通常通过轮询 <code>/api/auth/{sessionId}</code> 自动获取）。</p>
+        <a class="btn" th:href="@{/roles}">返回角色管理</a>
+    </div>
+</main>
+</body>
+</html>

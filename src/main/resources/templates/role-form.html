@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('角色编辑')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="card narrow">
+        <h1 th:text="${editing} ? '编辑角色' : '添加角色'"></h1>
+        <p th:if="${error}" class="error" th:text="${error}"></p>
+
+        <form method="post"
+              th:action="${editing} ? @{/roles/{id}/edit(id=${role.id})} : @{/roles/add}">
+            <label>
+                角色名
+                <input type="text" name="name" required maxlength="100"
+                       th:value="${editing} ? ${role.name} : ${roleName}">
+            </label>
+            <label>
+                描述
+                <input type="text" name="description" maxlength="500"
+                       th:value="${editing} ? ${role.description} : ${roleDescription}">
+            </label>
+            <label th:if="${editing}">
+                启用
+                <select name="enabled">
+                    <option value="true" th:selected="${role.enabled}">启用</option>
+                    <option value="false" th:selected="${!role.enabled}">停用</option>
+                </select>
+            </label>
+            <div class="form-actions">
+                <button type="submit" class="btn primary">保存</button>
+                <a class="btn" th:href="@{/roles}">取消</a>
+            </div>
+        </form>
+    </div>
+</main>
+</body>
+</html>
