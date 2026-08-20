@@ -30,8 +30,8 @@ public class ApiSkillController {
 
     /** 下载 skill zip 包 */
     @GetMapping(value = "/download")
-    public ResponseEntity<byte[]> download() {
-        byte[] zip = skillService.buildZip();
+    public ResponseEntity<byte[]> download(HttpServletRequest request) {
+        byte[] zip = skillService.buildZip(baseUrlResolver.resolve(request));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"agent-gateway.zip\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)

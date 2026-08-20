@@ -15,6 +15,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RoleService {
 
+    private static final int MAX_DESCRIPTION_LENGTH = 16_000;
+
     private final RoleMapper roleMapper;
 
     public List<Role> listAll() {
@@ -48,6 +50,7 @@ public class RoleService {
 
     public void create(String name, String description) {
         validateName(name);
+        validateDescription(description);
         checkNameUnique(name, null);
         Role r = new Role();
         r.setName(name.trim());
@@ -68,6 +71,7 @@ public class RoleService {
             }
         }
         if (description != null) {
+            validateDescription(description);
             r.setDescription(description);
         }
         if (enabled != null) {
@@ -89,6 +93,12 @@ public class RoleService {
         }
         if (name.trim().length() > 100) {
             throw ApiException.badRequest("角色名不能超过 100 字符");
+        }
+    }
+
+    private void validateDescription(String description) {
+        if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
+            throw ApiException.badRequest("角色描述不能超过 16000 字符");
         }
     }
 

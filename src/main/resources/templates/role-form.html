@@ -17,8 +17,23 @@
             </label>
             <label>
                 描述
-                <input type="text" name="description" maxlength="500"
-                       th:value="${editing} ? ${role.description} : ${roleDescription}">
+                <textarea name="description" class="role-description" maxlength="16000"
+                          th:text="${editing} ? ${role.description} : ${roleDescription}"></textarea>
+            </label>
+            <label th:if="${editing}">
+                角色描述生成提示词
+                <textarea class="role-description-prompt" readonly>根据我提供的角色职责简述，生成一段可直接用于 AI Agent 的“角色描述/系统提示词”。
+
+要求：
+1. 不要只改写或润色原句，要推导出该角色在协作流程中实际应如何工作。
+2. 明确角色的目标、职责、工作步骤、输入与输出、决策范围、审核标准，以及不应越界做什么。
+3. 把抽象职责转换成可执行行为。例如“负责审核”要写清楚审核什么、不通过时如何反馈、通过后如何处理。
+4. 保持职责边界：除非原职责明确要求，否则不要让该角色代替其他角色执行其专业工作。
+5. 对职责中信息不足、存在多种合理解释的部分，先提问澄清；不要自行假设或扩展为无关职责。
+6. 输出应简洁、具体、可直接粘贴到角色配置中，不要解释生成过程，不要提供多个版本。
+
+角色职责简述：
+{{ROLE_DESCRIPTION}}</textarea>
             </label>
             <label th:if="${editing}">
                 启用

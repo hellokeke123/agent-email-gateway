@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="fragments/layout :: head('网关设置')"></head>
+<body>
+<header th:replace="fragments/layout :: header"></header>
+<main class="container">
+    <div class="card narrow">
+        <h1>网关设置</h1>
+        <p>设置对外公开地址后，授权页面链接、安装教程和下载的 Skill 包将使用同一个地址。</p>
+        <p th:if="${error}" class="error" th:text="${error}"></p>
+
+        <form method="post" th:action="@{/settings/base-url}">
+            <label>
+                对外公开地址
+                <input type="url" name="baseUrl" required maxlength="2048" placeholder="https://gateway.example.com/agent-gateway"
+                       th:value="${savedBaseUrl}">
+            </label>
+            <p class="muted">只允许绝对 HTTP/HTTPS URL；可包含代理路径前缀，不可包含凭据、查询参数或片段。</p>
+            <div class="form-actions">
+                <button type="submit" class="btn primary">保存</button>
+            </div>
+        </form>
+
+        <form method="post" th:action="@{/settings/base-url/clear}" th:if="${savedBaseUrl}">
+            <div class="form-actions">
+                <button type="submit" class="btn">清除 Web 设置</button>
+            </div>
+        </form>
+
+        <hr>
+        <h2>Worker webhook 安全例外</h2>
+        <form method="post" th:action="@{/settings/private-webhook-urls}">
+            <label>
+                <input type="checkbox" name="allowPrivateWebhookUrls" value="true" th:checked="${allowPrivateWebhookUrls}">
+                允许受控本地/私有 HTTP(S) Worker webhook
+            </label>
+            <p class="muted">默认关闭。启用后，网关可以向受信任的本地或 RFC1918/IPv6 ULA 私有网络地址发起 HTTP 或 HTTPS 请求，仅用于本地测试或受控内部部署。公网 Worker 仍必须使用 HTTPS。</p>
+            <p class="error">这不会允许公网 HTTP、重定向、元数据端点、链路本地、组播、保留地址或任意私有网络访问。Worker 仍必须验证 HMAC 签名；使用 HTTPS 时仍必须使用有效 TLS 证书。</p>
+            <div class="form-actions">
+                <button type="submit" class="btn primary">保存 webhook 策略</button>
+            </div>
+        </form>
+
+        <hr>
+        <h2>下载并交给 Agent</h2>
+        <p>下面两个地址已经使用当前生效的公开地址。保存配置后，先下载 ZIP；或者把教程地址直接交给 Agent。</p>
+        <div class="form-actions">
+            <a class="btn primary" th:href="${skillDownloadUrl}">下载 agent-gateway.zip</a>
+            <a class="btn" th:href="${skillTutorialUrl}" target="_blank">查看安装教程</a>
+        </div>
+        <p class="muted">将下面完整提示词复制给 Agent：它会打开教程、安装并完整读取 Skill，再遵循角色化协作协议。</p>
+        <textarea class="code-box" id="skill-install-prompt" readonly th:text="${skillInstallPrompt}"></textarea>
+        <div class="form-actions">
+            <button class="btn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('skill-install-prompt').value)">复制提示词</button>
+        </div>
+
+        <hr>
+        <h2>地址状态</h2>
+        <p><strong>当前 Web 设置：</strong><span th:text="${savedBaseUrl ?: '未设置'}"></span></p>
+        <p><strong>回退来源：</strong><span th:text="${fallbackSource}"></span></p>
+        <p><strong>回退地址：</strong><span th:text="${fallbackBaseUrl}"></span></p>
+        <p><strong>生效地址：</strong><span th:text="${effectiveBaseUrl}"></span></p>
+    </div>
+</main>
+</body>
+</html>

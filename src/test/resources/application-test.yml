@@ -17,4 +17,5 @@ app:
   totp-window: 1
   totp-lock-threshold: 5
   totp-lock-minutes: 1
+  # 对外公开地址回退值。优先级：Web 设置 → app.base-url → 按请求推导。
   base-url: ""

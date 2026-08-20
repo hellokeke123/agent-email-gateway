@@ -5,10 +5,13 @@ import com.agentgateway.entity.AuthSession;
 import com.agentgateway.entity.Role;
 import com.agentgateway.exception.ApiException;
 import com.agentgateway.mapper.AuthCodeMapper;
+import com.agentgateway.service.AppConfigService;
 import com.agentgateway.service.AuthService;
+import com.agentgateway.util.BaseUrlResolver;
 import com.agentgateway.service.RoleService;
 import com.agentgateway.service.TotpService;
 import com.agentgateway.util.QrCodeUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -26,6 +29,8 @@ import java.time.Instant;
 public class WebController {
 
     private final TotpService totpService;
+    private final AppConfigService appConfigService;
+    private final BaseUrlResolver baseUrlResolver;
     private final AuthService authService;
     private final RoleService roleService;
     private final AuthCodeMapper authCodeMapper;
@@ -33,6 +38,74 @@ public class WebController {
     @GetMapping("/")
     public String index() {
         return totpService.isConfigured() ? "redirect:/roles" : "redirect:/setup";
+    }
+
+    // ---------- 对外地址设置 ----------
+
+    @GetMapping("/settings")
+    public String settings(HttpServletRequest request, Model model) {
+        String savedBaseUrl = appConfigService.getBaseUrl();
+        model.addAttribute("allowPrivateWebhookUrls", appConfigService.isPrivateWebhookUrlsAllowed());
+        String configuredFallback = baseUrlResolver.configuredFallback();
+        model.addAttribute("savedBaseUrl", savedBaseUrl);
+        model.addAttribute("fallbackSource", configuredFallback == null ? "请求地址" : "app.base-url");
+        model.addAttribute("fallbackBaseUrl", configuredFallback == null ? requestDerivedBaseUrl(request) : configuredFallback);
+        String effectiveBaseUrl = baseUrlResolver.resolve(request);
+        model.addAttribute("effectiveBaseUrl", effectiveBaseUrl);
+        model.addAttribute("skillDownloadUrl", effectiveBaseUrl + "/api/skill/download");
+        model.addAttribute("skillTutorialUrl", effectiveBaseUrl + "/api/skill/tutorial");
+        model.addAttribute("skillInstallPrompt", skillInstallPrompt(effectiveBaseUrl));
+        return "settings";
+    }
+
+    @PostMapping("/settings/base-url")
+    public String saveBaseUrl(@RequestParam String baseUrl, HttpServletRequest request, Model model) {
+        try {
+            appConfigService.saveBaseUrl(baseUrl);
+            return "redirect:/settings";
+        } catch (ApiException e) {
+            renderSettings(request, model);
+            model.addAttribute("error", e.getMessage());
+            model.addAttribute("savedBaseUrl", baseUrl);
+            return "settings";
+        }
+    }
+
+    @PostMapping("/settings/base-url/clear")
+    public String clearBaseUrl() {
+        appConfigService.clearBaseUrl();
+        return "redirect:/settings";
+    }
+
+    @PostMapping("/settings/private-webhook-urls")
+    public String savePrivateWebhookUrls(@RequestParam(required = false, defaultValue = "false") boolean allowPrivateWebhookUrls) {
+        appConfigService.savePrivateWebhookUrlsAllowed(allowPrivateWebhookUrls);
+        return "redirect:/settings";
+    }
+
+    private void renderSettings(HttpServletRequest request, Model model) {
+        model.addAttribute("allowPrivateWebhookUrls", appConfigService.isPrivateWebhookUrlsAllowed());
+        String configuredFallback = baseUrlResolver.configuredFallback();
+        model.addAttribute("fallbackSource", configuredFallback == null ? "请求地址" : "app.base-url");
+        model.addAttribute("fallbackBaseUrl", configuredFallback == null ? requestDerivedBaseUrl(request) : configuredFallback);
+        String effectiveBaseUrl = baseUrlResolver.resolve(request);
+        model.addAttribute("effectiveBaseUrl", effectiveBaseUrl);
+        model.addAttribute("skillDownloadUrl", effectiveBaseUrl + "/api/skill/download");
+        model.addAttribute("skillTutorialUrl", effectiveBaseUrl + "/api/skill/tutorial");
+        model.addAttribute("skillInstallPrompt", skillInstallPrompt(effectiveBaseUrl));
+    }
+
+    private String skillInstallPrompt(String effectiveBaseUrl) {
+        return "你正在加入一个通过 Agent Gateway 协作的软件交付团队。请先打开以下教程，下载并安装 agent-gateway skill，然后完整阅读 SKILL.md；它定义了你的任务、角色边界和协作方式。\n\n完成安装后，先按教程获取授权码并阅读返回的 role.name 和 role.description，只在该角色职责范围内工作。每个工作回合先检查未读未完成任务及全部未完成任务；使用带 Task ID 的回复线程确认、更新、阻塞和交接；完成时必须先回复可复现的验证证据，再标记任务完成。开发完成不等于全局验收，等待指定评审或验收角色的明确决定。不要只调用 API，必须遵循 SKILL.md 的角色化协作协议。\n\n教程地址：\n"
+                + effectiveBaseUrl + "/api/skill/tutorial";
+    }
+
+    private String requestDerivedBaseUrl(HttpServletRequest request) {
+        String scheme = request.getScheme();
+        int port = request.getServerPort();
+        String portPart = ("http".equals(scheme) && port == 80) || ("https".equals(scheme) && port == 443)
+                ? "" : ":" + port;
+        return scheme + "://" + request.getServerName() + portPart + request.getContextPath().replaceAll("/+$", "");
     }
 
     // ---------- TOTP 首次部署 ----------

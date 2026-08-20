@@ -55,6 +55,8 @@ nav a:hover { color: #fff; }
 main.container { padding-top: 28px; padding-bottom: 48px; }
 
 h1 { font-size: 22px; margin: 8px 0 18px; }
+h2 { font-size: 18px; margin: 20px 0 10px; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
 
 .card {
     background: var(--card);
@@ -111,7 +113,7 @@ h1 { font-size: 22px; margin: 8px 0 18px; }
 .inline-form { display: flex; gap: 10px; margin-top: 14px; }
 .inline-form input { flex: 1; }
 
-input[type="text"], input[type="password"], select {
+input[type="text"], input[type="password"], select, textarea {
     width: 100%;
     padding: 9px 12px;
     border: 1px solid var(--border);
@@ -119,6 +121,16 @@ input[type="text"], input[type="password"], select {
     font-size: 14px;
     margin-top: 6px;
     margin-bottom: 14px;
+}
+
+.role-description {
+    min-height: 88px;
+    resize: vertical;
+}
+
+.role-description-prompt {
+    min-height: 360px;
+    resize: vertical;
 }
 
 label { display: block; font-weight: 600; font-size: 14px; }
@@ -149,10 +161,14 @@ label { display: block; font-weight: 600; font-size: 14px; }
 .radio-item:hover { border-color: var(--primary); }
 
 .code-box {
+    display: block;
+    width: 100%;
     background: #0f172a;
     color: #e2e8f0;
     padding: 14px 16px;
+    border: 0;
     border-radius: 8px;
+    font-family: inherit;
     font-size: 14px;
     word-break: break-all;
     white-space: pre-wrap;

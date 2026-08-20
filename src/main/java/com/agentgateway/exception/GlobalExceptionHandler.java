@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -27,6 +28,14 @@ public class GlobalExceptionHandler {
         FieldError fe = e.getBindingResult().getFieldError();
         String msg = fe == null ? "参数校验失败" : fe.getField() + " " + fe.getDefaultMessage();
         return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR.getCode(), msg, req);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleUnreadableMessage(HttpMessageNotReadableException e,
+                                                                         HttpServletRequest req) {
+        log.warn("Unreadable JSON request body on {}", req.getRequestURI(), e);
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.INVALID_JSON.getCode(),
+                "请发送有效的 UTF-8 JSON，设置 Content-Type: application/json; charset=UTF-8，并检查 JSON 的引号、逗号和转义。", req);
     }
 
     @ExceptionHandler(Exception.class)

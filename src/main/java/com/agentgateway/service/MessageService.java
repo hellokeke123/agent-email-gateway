@@ -10,6 +10,7 @@ import com.agentgateway.mapper.MessageMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,6 +26,7 @@ public class MessageService {
 
     private final MessageMapper messageMapper;
     private final RoleService roleService;
+    private final TaskService taskService;
 
     public List<MessageDto> inbox(Role boundRole, Boolean read, Boolean completed, Integer limit) {
         int lim = normalizeLimit(limit);
@@ -74,8 +76,16 @@ public class MessageService {
     }
 
     /** 从绑定角色发送给另一角色；★记录发送时使用的授权码 */
+    @Transactional
     public MessageDto send(Role boundRole, com.agentgateway.dto.SendMessageRequest req, AuthCode authCode) {
         Role toRole = roleService.getEnabledOrThrow(req.getToRoleId());
+        if (Boolean.TRUE.equals(req.getCreateTask())) {
+            if (req.getTask() == null) {
+                throw ApiException.badRequest("task is required when createTask is true");
+            }
+            // Validate before persisting so message, task, and its outbox event commit atomically.
+            taskService.validateForCreate(req.getTask());
+        }
         Message m = new Message();
         m.setMessageId("<" + UUID.randomUUID() + "@gateway>");
         m.setFromRoleId(boundRole.getId());
@@ -85,6 +95,9 @@ public class MessageService {
         m.setBodyText(req.getBody());
         m.setBodyHtml(req.getHtml());
         messageMapper.insert(m);
+        if (Boolean.TRUE.equals(req.getCreateTask())) {
+            taskService.create(m.getId(), boundRole.getId(), toRole.getId(), req.getTask());
+        }
         return toDto(m, roleName(m.getFromRoleId()), roleName(m.getToRoleId()));
     }
 

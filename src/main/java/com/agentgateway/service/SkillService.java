@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -23,41 +24,34 @@ public class SkillService {
         return """
                 # 安装 Agent Gateway Skill（必读）
 
-                你是一个 AI 助手。用户环境中有名为 **agent-gateway** 的服务，它通过角色授权码让你代为收发角色之间的消息。
-                你需要安装其 skill 才能知道如何使用它。请严格按以下步骤执行：
+                你是一个 AI 助手。用户环境中有名为 **agent-gateway** 的服务，它通过一次性角色授权码提供角色消息 API。
+                请安装并阅读 skill，然后继续处理触发本教程的**原始用户请求**；不要把安装或收件箱查询当成用户工作的替代品。
 
-                ## 第一步：下载 skill 包
+                ## 下载、解压和读取
 
                 ```bash
                 curl -L -o agent-gateway.zip "%s"
+                mkdir -p ~/.config/agent-gateway/skill
+                unzip -o agent-gateway.zip -d ~/.config/agent-gateway/skill
+                # 也可以使用宿主环境等价的下载、解压和 skill 安装能力
                 ```
 
-                ## 第二步：解压安装到 skill 目录
+                完成后完整读取 `SKILL.md`，确认本地版本与下载包一致。它描述真实 API、安全约束、授权流程和协作判断规则。
 
-                ```bash
-                mkdir -p ~/.claude/skills/agent-gateway
-                unzip -o agent-gateway.zip -d ~/.claude/skills/agent-gateway
-                # 若安装到项目本地：解压到 .claude/skills/agent-gateway/
-                ```
+                ## 授权与继续工作
 
-                ## 第三步：阅读并加载 skill
+                1. 保存当前用户的原始请求和相关上下文。调用 `POST %s`，将响应中的 `pageUrl` 原样交给用户；只有用户能在该页面完成 TOTP 和角色选择。你不得索取、接收或处理 TOTP。
+                2. 如果你的运行时支持后台或异步任务，将 `GET /api/auth/{sessionId}` 的有限轮询交给该能力，每 3–5 秒检查一次。`waiting_totp` / `verified` 继续轮询，`completed` 停止并将结果通知或恢复到当前 Agent 上下文，`410 SESSION_EXPIRED` 停止并说明需要重新授权。
+                3. 如果运行时不支持后台或异步任务，明确告知用户授权轮询会占用当前执行，或请用户稍后让你继续；不要声称已经启动常驻任务，也不要伪造后台能力。
+                4. 轮询完成后，在当前上下文保留 `authCode`，并保存返回的 `role.name` 与 `role.description`。`role.description` 只定义职责边界；根据原始用户请求和已有协作信息自主决定下一步。收件箱是协作上下文工具，不是自动启动任务的来源；空收件箱不是当前请求结束的理由。没有请求或协作事件时，不伪造任务。
+                5. 使用授权身份继续处理原始用户请求。只有在当前请求需要时才查询收件箱、发送或回复消息，并遵守 `SKILL.md` 的安全和验证规则。
 
-                解压后根目录有 `SKILL.md`，请完整读取它，它会告诉你：
-                - 授权流程：调用 `POST %s` 发起授权 → 请用户打开返回的页面完成 TOTP 验证并选择一个角色 → 你轮询直到拿到授权码
-                - 所有消息操作 API 的用法与 curl 示例（未读查询、发送、回复、已读/完成标记等）
-
-                ## 安装完成后的自检
-
-                - 确认 `SKILL.md` 已读取，且你知道如何发起授权
-                - 未取得授权码前，不要尝试调用任何消息 API
-                - 若你没有 curl/unzip，可用你环境等价的下载与解压方式完成同样步骤
-
-                现在开始执行以上步骤。若已安装过，直接读取 skill 即可。
+                未取得授权码前不要调用消息 API。若环境没有 curl/unzip，使用等价的宿主能力完成下载和解压。现在开始安装并读取 skill，然后回到原始用户请求。
                 """.formatted(downloadUrl, authStartUrl);
     }
 
     /** 下载接口：把 skill 文件打包成 zip */
-    public byte[] buildZip() {
+    public byte[] buildZip(String baseUrl) {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(bos)) {
             for (String entry : ENTRIES) {
@@ -65,8 +59,10 @@ public class SkillService {
                     if (in == null) {
                         throw new IllegalStateException("skill 资源缺失: " + entry);
                     }
+                    String content = new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                            .replace("{BASE_URL}", baseUrl);
                     zos.putNextEntry(new ZipEntry("agent-gateway/" + entry));
-                    in.transferTo(zos);
+                    zos.write(content.getBytes(StandardCharsets.UTF_8));
                     zos.closeEntry();
                 }
             }

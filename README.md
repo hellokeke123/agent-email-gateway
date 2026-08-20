@@ -80,7 +80,7 @@
 
 ---
 
-## 3. 数据模型（5 张表）
+## 3. 数据模型
 
 ```
 app_role ─┬─< auth_code      （一个角色多条授权码，但同一时刻至多一条有效）
@@ -90,7 +90,9 @@ app_role ─┬─< auth_code      （一个角色多条授权码，但同一时
 auth_code ──< auth_session.auth_code_id
           ──< message.auth_code_id   （★ 审计链）
 
-totp_config：单行（id=1），管理员密钥
+worker ──< worker_credential （token/signing secret 仅哈希存储）
+worker_task ──< task_event （outbox + webhook 投递重试）
+worker_task ── app_role（目标角色）
 ```
 
 ### 3.1 totp_config（管理员密钥，单行）
@@ -286,6 +288,29 @@ Agent 是"一次性"的，它每次冷启动都不知道你的网关协议，所
 | `POST /api/messages/{id}/reply` | `{body}` 回复，构建线程链 |
 | `GET /api/roles` | 列其它角色（只读） |
 
+### Worker 管理与任务（管理 API 需已验证的 TOTP Web 会话；Worker API 需 worker token）
+
+| 端点 | 认证 | 请求/说明 |
+|------|------|----------|
+| `GET /api/workers` | TOTP Web 会话 | 列出已注册 worker |
+| `GET /api/workers/{id}` | TOTP Web 会话 | 查询 worker |
+| `POST /api/workers` | TOTP Web 会话 | `{roleId, name, webhookUrl?}`；每个角色最多一个 worker；返回 worker、一次性 `token` 与 `webhookSigningSecret` |
+| `POST /api/workers/{id}/token` | TOTP Web 会话 | 使旧凭据失效并返回一套新的、一次性 token/signing secret |
+| `POST /api/workers/{id}/disable` | TOTP Web 会话 | 禁用 worker；其 token 不能再访问 worker API |
+| `POST /api/workers/{id}/enable` | TOTP Web 会话 | 在绑定角色仍启用时重新启用 worker |
+| `GET /api/worker/tasks` | Worker token | 列出绑定角色的任务（含所有状态） |
+| `GET /api/worker/tasks/{publicId}` | Worker token | 读取绑定角色范围内的任务 |
+| `POST /api/worker/tasks/{publicId}/claim` | Worker token | `{version, leaseSeconds?}`；仅 `PENDING` 可领取，返回 leaseToken |
+| `POST /api/worker/tasks/{publicId}/heartbeat` | Worker token | `{version, leaseToken, leaseSeconds?}`；续租 |
+| `POST /api/worker/tasks/{publicId}/release` | Worker token | `{version, leaseToken}`；释放回 `PENDING` |
+| `POST /api/worker/tasks/{publicId}/progress` | Worker token | `{version, leaseToken, progress}`；0–100，状态转为 `IN_PROGRESS` |
+| `POST /api/worker/tasks/{publicId}/block` | Worker token | `{version, leaseToken, reason}`；状态转为 `BLOCKED` 并释放租约 |
+| `POST /api/worker/tasks/{publicId}/complete` | Worker token | `{version, leaseToken, result?}`；进度设为 100、状态转为 `COMPLETED` 并释放租约 |
+
+Worker token 可以置于 `X-Worker-Token: <token>`，也可以使用 `Authorization: Bearer <token>`。Worker API 按绑定角色限域，不能读取或变更其它角色的任务。
+
+要由消息显式创建 worker task，角色消息发送者在 `POST /api/messages/send` 请求中加入 `"createTask": true` 与 `"task": {"title":"...","payload":"..."}`。消息文本不会被自动解析成任务；消息、任务和待投递事件在同一事务中创建。
+
 ### Skill 与健康
 
 | 端点 | 认证 | 说明 |
@@ -294,11 +319,14 @@ Agent 是"一次性"的，它每次冷启动都不知道你的网关协议，所
 | `GET /api/skill/download` | 无 | 下载 skill 包（zip） |
 | `GET /api/health` | 无 | 健康检查 |
 
+Worker webhook 事件体为：`{"eventId": <number>, "eventType": "TASK_*", "occurredAt": "...", "data": {"taskPublicId": "...", "status": "...", "version": <number>}}`。事件包含任务状态变化的通知；实际任务详情以 `GET /api/worker/tasks/{publicId}` 为准。
+
 ### 错误码
 
 | HTTP | code | 含义 |
 |------|------|------|
 | 400 | `VALIDATION_ERROR` | 参数校验失败 |
+| 400 | `INVALID_JSON` | 请求 JSON 语法错误或不是 UTF-8；使用 `Content-Type: application/json; charset=UTF-8` 重新生成 JSON，并检查引号、逗号和转义，勿重试相同字节 |
 | 401 | `AUTH_CODE_INVALID` | 授权码无效或已撤销 |
 | 401 | `AUTH_CODE_EXPIRED` | 授权码已过期（可 refresh 恢复） |
 | 401 | `INVALID_TOTP` | TOTP 码错误 |
@@ -328,6 +356,12 @@ java -jar target/agent-gateway-0.1.0.jar
 
 启动时 `spring.sql.init` 自动执行幂等 `schema.sql` 建表（MyBatis-Plus 不自动建表）。数据库不存在会自动创建。
 
+`app_role.description` 在启动时会自动升级为 `TEXT`，以支持最多 16,000 个字符的多行角色描述；这会修复旧数据库中较窄的列定义。如果希望在重启前手动迁移，请执行：
+
+```sql
+ALTER TABLE app_role MODIFY COLUMN description TEXT NULL;
+```
+
 ### 配置项（application.yml）
 
 | 配置 | 默认 | 说明 |
@@ -338,7 +372,7 @@ java -jar target/agent-gateway-0.1.0.jar
 | `app.totp-window` | 1 | TOTP ±窗口步数 |
 | `app.totp-lock-threshold` | 5 | 失败锁定阈值 |
 | `app.totp-lock-minutes` | 1 | 锁定时长 |
-| `app.base-url` | "" | 对外地址（skill 下载链接；留空自动推导） |
+| `app.base-url` | "" | 对外地址回退值；优先级为 Web 设置 → `app.base-url` → 按请求推导。反向代理、TLS 终止、外部主机或非根代理路径时请配置公开地址。 |
 | `app.issuer` | AgentGateway | TOTP otpauth URI issuer |
 
 ---
@@ -348,7 +382,7 @@ java -jar target/agent-gateway-0.1.0.jar
 ```bash
 # 网关先把教程交给 agent，或直接：
 curl -L -o agent-gateway.zip http://localhost:8080/api/skill/download
-mkdir -p ~/.claude/skills/agent-gateway && unzip -o agent-gateway.zip -d ~/.claude/skills/agent-gateway
+mkdir -p ~/.config/agent-gateway/skill && unzip -o agent-gateway.zip -d ~/.config/agent-gateway/skill
 ```
 
 安装后 agent 读 `SKILL.md` 即可了解全部协议。授权流程示例（agent 只负责发起与轮询）：

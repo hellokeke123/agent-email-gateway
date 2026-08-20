@@ -38,5 +38,6 @@ app:
   totp-lock-threshold: 5
   # 锁定分钟数
   totp-lock-minutes: 1
-  # 对外公开地址（用于 skill 下载链接；留空则按请求自动推导）
+  # 对外公开地址回退值。优先级：Web 设置 → app.base-url → 按请求推导。
+  # 反向代理、TLS 终止、外部主机或非根路径部署时请设置公开地址。
   base-url: ""
