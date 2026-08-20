@@ -114,6 +114,7 @@ CREATE TABLE IF NOT EXISTS worker_credential (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id), UNIQUE KEY uk_worker_token_hash (token_hash), KEY idx_worker_credential_active (worker_id, active), CONSTRAINT fk_credential_worker FOREIGN KEY (worker_id) REFERENCES worker(id)
 ) ENGINE=InnoDB;
+ALTER TABLE worker_credential ADD COLUMN IF NOT EXISTS webhook_signing_secret VARCHAR(255) NULL AFTER webhook_signing_secret_hash;
 CREATE TABLE IF NOT EXISTS worker_task (
   id BIGINT NOT NULL AUTO_INCREMENT, public_id VARCHAR(36) NOT NULL, source_message_id BIGINT NOT NULL, initiator_role_id BIGINT NOT NULL, target_role_id BIGINT NOT NULL,
   status VARCHAR(20) NOT NULL, title VARCHAR(500) NOT NULL, payload TEXT NULL, claimed_by_worker_id BIGINT NULL, lease_token VARCHAR(64) NULL, lease_expires_at DATETIME NULL,

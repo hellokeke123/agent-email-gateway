@@ -87,7 +87,7 @@ public class WorkerService {
         byte[] secretBytes = new byte[32]; secureRandom.nextBytes(secretBytes);
         String token = "wkr_" + Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
         String webhookSigningSecret = "whsec_" + Base64.getUrlEncoder().withoutPadding().encodeToString(secretBytes);
-        WorkerCredential credential = new WorkerCredential(); credential.setWorkerId(worker.getId()); credential.setTokenHash(hash(token)); credential.setWebhookSigningSecretHash(hash(webhookSigningSecret)); credential.setTokenPrefix(token.substring(0, 12)); credential.setActive(true); credentialMapper.insert(credential);
+        WorkerCredential credential = new WorkerCredential(); credential.setWorkerId(worker.getId()); credential.setTokenHash(hash(token)); credential.setWebhookSigningSecretHash(hash(webhookSigningSecret)); credential.setWebhookSigningSecret(webhookSigningSecret); credential.setTokenPrefix(token.substring(0, 12)); credential.setActive(true); credentialMapper.insert(credential);
         return new IssuedCredential(token, webhookSigningSecret);
     }
     private record IssuedCredential(String token, String webhookSigningSecret) { }

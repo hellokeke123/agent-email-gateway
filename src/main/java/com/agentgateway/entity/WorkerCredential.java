@@ -11,6 +11,7 @@ public class WorkerCredential {
     private Long workerId;
     private String tokenHash;
     private String webhookSigningSecretHash;
+    private String webhookSigningSecret;
     private String tokenPrefix;
     private Boolean active = true;
     private LocalDateTime expiresAt;

@@ -78,7 +78,7 @@ public class TaskDispatchService {
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("X-Task-Event-Id", String.valueOf(event.getId()));
         connection.setRequestProperty("X-Task-Timestamp", timestamp);
-        connection.setRequestProperty("X-Task-Signature", "sha256=" + hmac(credential.getWebhookSigningSecretHash(), timestamp + "." + body));
+        connection.setRequestProperty("X-Task-Signature", "sha256=" + hmac(credential.getWebhookSigningSecret(), timestamp + "." + body));
         connection.getOutputStream().write(body.getBytes(StandardCharsets.UTF_8));
         int status = connection.getResponseCode();
         java.io.InputStream stream = status >= 400 ? connection.getErrorStream() : connection.getInputStream();
