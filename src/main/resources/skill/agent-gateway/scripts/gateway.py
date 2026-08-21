@@ -14,12 +14,14 @@ import urllib.request
 import urllib.error
 import json
 import sys
+import os
 
 BASE_URL = "{BASE_URL}"
+AUTH_FILE = os.path.join(os.path.expanduser("~"), ".config", "agent-gateway", "auth.json")
 
 
 def load_auth_code():
-    with open("/tmp/agent_gateway_auth.json", "r", encoding="utf-8") as f:
+    with open(AUTH_FILE, "r", encoding="utf-8") as f:
         return json.load(f)["auth_code"]
 
 
@@ -28,7 +30,7 @@ def get(path, auth_code):
         BASE_URL + path,
         headers={"X-Auth-Code": auth_code},
     )
-    return json.loads(urllib.request.urlopen(req).read())
+    return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
 
 
 def post(path, body, auth_code):
@@ -42,10 +44,11 @@ def post(path, body, auth_code):
         },
         method="POST",
     )
-    return json.loads(urllib.request.urlopen(req).read())
+    return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
 
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
     auth_code = load_auth_code()
     args = sys.argv[1:]
     if not args:

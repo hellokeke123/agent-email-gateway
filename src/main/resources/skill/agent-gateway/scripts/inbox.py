@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+ #!/usr/bin/env python3
 """
 持续轮询收件箱，收到消息后调用 claude CLI 处理。
 用法：python3 scripts/inbox.py
@@ -9,11 +9,10 @@ import urllib.error
 import json
 import sys
 import time
-import subprocess
 import os
 
 BASE_URL = "{BASE_URL}"
-AUTH_FILE = "/tmp/agent_gateway_auth.json"
+AUTH_FILE = os.path.join(os.path.expanduser("~"), ".config", "agent-gateway", "auth.json")
 POLL_INTERVAL = 10
 
 
@@ -28,32 +27,37 @@ def fetch_inbox(auth_code):
         headers={"X-Auth-Code": auth_code},
     )
     try:
-        return json.loads(urllib.request.urlopen(req).read())
+        return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
     except urllib.error.HTTPError as e:
-        body = json.loads(e.read())
+        body = json.loads(e.read().decode("utf-8"))
         if body.get("error") in ("AUTH_CODE_EXPIRED", "AUTH_CODE_INVALID"):
             return None
         raise
 
 
+def post(path, body, auth_code):
+    data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        BASE_URL + path,
+        data=data,
+        headers={
+            "X-Auth-Code": auth_code,
+            "Content-Type": "application/json; charset=UTF-8",
+        },
+        method="POST",
+    )
+    return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
+
+
 def handle_message(msg, auth):
     msg_id = msg["id"]
-    prompt = (
-        f"你是 {auth['role_name']}。\n"
-        f"职责：{auth['role_desc']}\n\n"
-        f"你收到一条消息（ID: {msg_id}）：\n"
-        f"发件人角色ID: {msg.get('fromRoleId')}\n"
-        f"主题: {msg.get('subject')}\n"
-        f"内容: {msg.get('body')}\n\n"
-        f"按职责处理这条消息。处理完成后运行：\n"
-        f"python3 scripts/gateway.py reply {msg_id} <你的回复>\n"
-        f"python3 scripts/gateway.py complete {msg_id}\n"
-        f"skill 文件在 ~/.config/agent-gateway/skill/agent-gateway/ 目录下。"
-    )
-    subprocess.run(
-        ["claude", "-p", prompt],
-        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    )
+    print(f"收到消息 {msg_id}：{msg.get('subject')}", flush=True)
+    # 标记已读
+    post(f"/api/messages/{msg_id}/read", {"read": True}, auth["auth_code"])
+    # 回复收到，等待 agent 处理
+    post(f"/api/messages/{msg_id}/reply", {
+        "body": f"已收到，正在按职责处理。"
+    }, auth["auth_code"])
 
 
 def main():
