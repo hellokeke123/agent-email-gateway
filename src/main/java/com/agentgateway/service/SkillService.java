@@ -15,7 +15,9 @@ import java.util.zip.ZipOutputStream;
 public class SkillService {
 
     private static final String PREFIX = "/skill/agent-gateway/";
-    private static final List<String> ENTRIES = List.of("SKILL.md", "README.md", "scripts/examples.md");
+    private static final List<String> ENTRIES = List.of(
+            "SKILL.md", "README.md", "scripts/examples.md",
+            "scripts/auth.py", "scripts/inbox.py", "scripts/gateway.py");
 
     /** 教程接口：返回教 agent 安装 skill 的提示词 */
     public String tutorialMarkdown(String baseUrl) {
@@ -25,7 +27,7 @@ public class SkillService {
                 # 安装 Agent Gateway Skill（必读）
 
                 你是一个 AI 助手。用户环境中有名为 **agent-gateway** 的服务，它通过一次性角色授权码提供角色消息 API。
-                请安装并阅读 skill，然后继续处理触发本教程的**原始用户请求**；不要把安装或收件箱查询当成用户工作的替代品。
+                请安装并阅读 skill，然后按照 SKILL.md 的授权流程开始工作。
 
                 ## 下载、解压和读取
 
@@ -40,17 +42,58 @@ public class SkillService {
 
                 ## 授权与继续工作
 
-                1. 保存当前用户的原始请求和相关上下文。调用 `POST %s`，将响应中的 `pageUrl` 原样交给用户；只有用户能在该页面完成 TOTP 和角色选择。你不得索取、接收或处理 TOTP。
-                2. 如果你的运行时支持后台或异步任务，将 `GET /api/auth/{sessionId}` 的有限轮询交给该能力，每 3–5 秒检查一次。`waiting_totp` / `verified` 继续轮询，`completed` 停止并将结果通知或恢复到当前 Agent 上下文，`410 SESSION_EXPIRED` 停止并说明需要重新授权。
-                3. 如果运行时不支持后台或异步任务，明确告知用户授权轮询会占用当前执行，或请用户稍后让你继续；不要声称已经启动常驻任务，也不要伪造后台能力。
-                4. 轮询完成后，在当前上下文保留 `authCode`，并保存返回的 `role.name` 与 `role.description`。`role.description` 只定义职责边界；根据原始用户请求和已有协作信息自主决定下一步。收件箱是协作上下文工具，不是自动启动任务的来源；空收件箱不是当前请求结束的理由。没有请求或协作事件时，不伪造任务。
-                5. 使用授权身份继续处理原始用户请求。只有在当前请求需要时才查询收件箱、发送或回复消息，并遵守 `SKILL.md` 的安全和验证规则。
+                现在按顺序执行以下步骤，每步完成后立即执行下一步，无需等待用户回复。
 
-                未取得授权码前不要调用消息 API。若环境没有 curl/unzip，使用等价的宿主能力完成下载和解压。现在开始安装并读取 skill，然后回到原始用户请求。
-                """.formatted(downloadUrl, authStartUrl);
+                **步骤 1：执行此脚本发起授权**
+
+                ```python
+                import urllib.request, json
+                resp = json.loads(urllib.request.urlopen(
+                    urllib.request.Request("%s", method="POST")
+                ).read())
+                session_id = resp["sessionId"]
+                print("pageUrl:", resp["pageUrl"])
+                # 将 pageUrl 原样展示给用户，告知其在浏览器完成 TOTP 和角色选择，不得索取或处理 TOTP
+                ```
+
+                **步骤 2：立即执行此轮询脚本，不等用户回复**
+
+                ```python
+                import urllib.request, json, time
+                while True:
+                    resp = json.loads(urllib.request.urlopen(
+                        "%s/api/auth/" + session_id
+                    ).read())
+                    state = resp.get("state")
+                    if state == "completed":
+                        auth_code = resp["authCode"]
+                        role_name = resp["role"]["name"]
+                        role_desc = resp["role"]["description"]
+                        print("授权完成, role:", role_name)
+                        break
+                    elif state in ("waiting_totp", "verified"):
+                        time.sleep(4)
+                    else:
+                        print("SESSION_EXPIRED，需重新授权"); raise SystemExit(1)
+                ```
+
+                **步骤 3：轮询完成后立即查询收件箱，在职责范围内处理消息**
+
+                ```python
+                import urllib.request, json
+                req = urllib.request.Request(
+                    "%s/api/messages/inbox?read=false&completed=false&limit=20",
+                    headers={"X-Auth-Code": auth_code}
+                )
+                inbox = json.loads(urllib.request.urlopen(req).read())
+                print(json.dumps(inbox, ensure_ascii=False, indent=2))
+                # 根据 role_desc 定义的职责边界处理收到的消息
+                ```
+
+                发送或回复消息时始终用 `json.dumps` 构造 body，不要手拼 JSON 字符串。收到 `400 INVALID_JSON` 时改用 `json.dumps` 后立即重试，不得停止。完整 API 用法见 SKILL.md。
+                """.formatted(downloadUrl, authStartUrl, baseUrl, baseUrl);
     }
 
-    /** 下载接口：把 skill 文件打包成 zip */
     public byte[] buildZip(String baseUrl) {
         try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
              ZipOutputStream zos = new ZipOutputStream(bos)) {

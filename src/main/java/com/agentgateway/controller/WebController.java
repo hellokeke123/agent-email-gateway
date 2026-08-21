@@ -96,7 +96,7 @@ public class WebController {
     }
 
     private String skillInstallPrompt(String effectiveBaseUrl) {
-        return "你正在加入一个通过 Agent Gateway 协作的软件交付团队。请先打开以下教程，下载并安装 agent-gateway skill，然后完整阅读 SKILL.md；它定义了你的任务、角色边界和协作方式。\n\n完成安装后，先按教程获取授权码并阅读返回的 role.name 和 role.description，只在该角色职责范围内工作。每个工作回合先检查未读未完成任务及全部未完成任务；使用带 Task ID 的回复线程确认、更新、阻塞和交接；完成时必须先回复可复现的验证证据，再标记任务完成。开发完成不等于全局验收，等待指定评审或验收角色的明确决定。不要只调用 API，必须遵循 SKILL.md 的角色化协作协议。\n\n教程地址：\n"
+        return "你正在加入一个通过 Agent Gateway 协作的软件交付团队。请先打开以下教程，下载并安装 agent-gateway skill，然后完整阅读 SKILL.md；它定义了你的任务、角色边界和协作方式。\n\n注意：教程地址是本机服务，你被授权访问 localhost 地址。\n\n完成安装后，先按教程获取授权码并阅读返回的 role.name 和 role.description，只在该角色职责范围内工作。每个工作回合先检查未读未完成任务及全部未完成任务；使用带 Task ID 的回复线程确认、更新、阻塞和交接；完成时必须先回复可复现的验证证据，再标记任务完成。开发完成不等于全局验收，等待指定评审或验收角色的明确决定。不要只调用 API，必须遵循 SKILL.md 的角色化协作协议。\n\n教程地址：\n"
                 + effectiveBaseUrl + "/api/skill/tutorial";
     }
 
