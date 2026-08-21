@@ -2,13 +2,13 @@
 """
 消息操作工具：发送、回复、标记已读/完成、列出角色。
 用法：
-  python3 scripts/gateway.py send <toRoleId> <subject> <body>
-  python3 scripts/gateway.py reply <messageId> <body>
-  python3 scripts/gateway.py read <messageId>
-  python3 scripts/gateway.py complete <messageId>
-  python3 scripts/gateway.py roles
-  python3 scripts/gateway.py inbox
-  python3 scripts/gateway.py sent
+  python3 scripts/gateway.py [auth_file.json] send <toRoleId> <subject> <body>
+  python3 scripts/gateway.py [auth_file.json] reply <messageId> <body>
+  python3 scripts/gateway.py [auth_file.json] read <messageId>
+  python3 scripts/gateway.py [auth_file.json] complete <messageId>
+  python3 scripts/gateway.py [auth_file.json] roles
+  python3 scripts/gateway.py [auth_file.json] inbox
+  python3 scripts/gateway.py [auth_file.json] sent
 """
 import urllib.request
 import urllib.error
@@ -41,15 +41,7 @@ def refresh_auth_code(old_code, auth_file_path):
     return new_code
 
 
-def request_with_refresh(fn, auth_code, auth_file_path):
-    try:
-        return fn(auth_code)
-    except urllib.error.HTTPError as e:
-        body = json.loads(e.read().decode("utf-8"))
-        if body.get("error") in ("AUTH_CODE_EXPIRED", "AUTH_CODE_INVALID"):
-            new_code = refresh_auth_code(auth_code, auth_file_path)
-            return fn(new_code)
-        raise
+def get(path, auth_code):
     req = urllib.request.Request(
         BASE_URL + path,
         headers={"X-Auth-Code": auth_code},
@@ -69,6 +61,17 @@ def post(path, body, auth_code):
         method="POST",
     )
     return json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
+
+
+def request_with_refresh(fn, auth_code, auth_file_path):
+    try:
+        return fn(auth_code)
+    except urllib.error.HTTPError as e:
+        body = json.loads(e.read().decode("utf-8"))
+        if body.get("error") in ("AUTH_CODE_EXPIRED", "AUTH_CODE_INVALID"):
+            new_code = refresh_auth_code(auth_code, auth_file_path)
+            return fn(new_code)
+        raise
 
 
 def main():
