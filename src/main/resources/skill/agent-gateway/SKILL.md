@@ -24,9 +24,11 @@ allowed-tools:
 
 ## 步骤 1：发起授权
 
-在前台运行 `python3 scripts/auth.py`，等待输出，将输出的 pageUrl 展示给用户，脚本自动轮询直到授权完成，输出 role_name 和 role_desc。
+在前台运行 `python3 scripts/auth.py`，等待输出，将输出的 pageUrl 展示给用户，记录输出中的 `AUTH_FILE=<路径>`，脚本自动轮询直到授权完成，输出 role_name 和 role_desc。
 
 授权完成后你获得了在协作系统中的身份和职责。**所有行动必须在 role_desc 定义的范围内。**
+
+后续所有 `python3 scripts/gateway.py` 命令第一个参数传入 AUTH_FILE 路径，例如：`python3 scripts/gateway.py <auth_file_path> inbox`
 
 ## 步骤 2：自动处理收件箱
 
@@ -35,7 +37,7 @@ allowed-tools:
 - 有消息且在 role_desc 职责范围内：按职责处理，运行 `python3 scripts/gateway.py reply <id> <回复>`，再运行 `python3 scripts/gateway.py complete <id>`
 - 有消息但超出 role_desc 职责范围：运行 `python3 scripts/gateway.py reply <id> "此事项超出我的职责范围"` 并标记完成
 - 收件箱为空：静默等待 10 秒，直接运行下一次轮询，不输出任何内容，不询问用户
-- auth_code 过期：运行 `python3 scripts/auth.py` 重新授权后继续
+- auth_code 过期：`gateway.py` 会自动刷新，无需干预
 
 ## 行为规范
 

@@ -11,15 +11,21 @@ import sys
 import os
 
 BASE_URL = "{BASE_URL}"
-AUTH_FILE = os.path.join(os.path.expanduser("~"), ".config", "agent-gateway", "auth.json")
+AUTH_DIR = os.path.join(os.path.expanduser("~"), ".config", "agent-gateway")
+
+
+def auth_file(session_id):
+    return os.path.join(AUTH_DIR, f"auth-{session_id}.json")
 
 
 def start_auth():
     req = urllib.request.Request(BASE_URL + "/api/auth/start", method="POST")
     resp = json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
+    session_id = resp["sessionId"]
     print("请在浏览器完成 TOTP 和角色选择：", flush=True)
     print(resp["pageUrl"], flush=True)
-    return resp["sessionId"]
+    print(f"AUTH_FILE={auth_file(session_id)}", flush=True)
+    return session_id
 
 
 def poll_auth(session_id):
@@ -34,8 +40,9 @@ def poll_auth(session_id):
                 "role_name": resp["role"]["name"],
                 "role_desc": resp["role"]["description"],
             }
-            os.makedirs(os.path.dirname(AUTH_FILE), exist_ok=True)
-            with open(AUTH_FILE, "w", encoding="utf-8") as f:
+            f_path = auth_file(session_id)
+            os.makedirs(os.path.dirname(f_path), exist_ok=True)
+            with open(f_path, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False)
             sys.stdout.reconfigure(encoding="utf-8")
             print("授权完成, role:", result["role_name"], flush=True)
@@ -46,26 +53,6 @@ def poll_auth(session_id):
         else:
             print("SESSION_EXPIRED，需重新授权", flush=True)
             sys.exit(1)
-
-
-def refresh_auth(auth_code):
-    req = urllib.request.Request(
-        BASE_URL + "/api/auth/refresh",
-        method="POST",
-        headers={"X-Auth-Code": auth_code},
-    )
-    resp = json.loads(urllib.request.urlopen(req).read().decode("utf-8"))
-    new_code = resp["authCode"]
-    try:
-        with open(AUTH_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        data["auth_code"] = new_code
-        with open(AUTH_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False)
-    except Exception:
-        pass
-    print("auth_code 已刷新:", new_code, flush=True)
-    return new_code
 
 
 if __name__ == "__main__":
